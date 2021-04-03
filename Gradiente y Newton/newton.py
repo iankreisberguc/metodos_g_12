@@ -51,7 +51,13 @@ def subrutina(Q, c, x, a):
     print('-------------------------')
     # Funcion a optimizar, gradiente y hessiano
     #funcion_objetivo = 0.5 * np.dot(np.transpose(x), np.dot(Q,x)) + np.dot(np.transpose(c), x) + alpha*(5 - x[n-1])**4
-    funcion_objetivo = np.piecewise(x,[(abs(x)<a), (abs(x)>=a)],[(-a^2)*np.log(1-(x/a)**2), np.inf])
+
+    r_i = lambda A, x, b: np.dot(A, x) - b
+    penalizacion_logaritmica = lambda x, a: np.piecewise(x, [(abs(x) < a), (abs(x) >= a)], 
+                                            [(-a ** 2) * np.log(1 - (x / a) ** 2), 2**62])
+    
+    funcion_objetivo = lambda A, x, b, a: sum(penalizacion_logaritmica(r_i(A, x, b), a))
+    
     gradiente = np.dot(Q, x) + c + vector_canonico * (-4*alpha*(5-x[n-1])**3)
     hessiano = Q + matriz_canonica * (12*alpha*(5-x[n-1])**2)
 
