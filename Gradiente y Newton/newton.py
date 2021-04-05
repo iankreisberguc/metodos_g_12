@@ -14,7 +14,7 @@ from parametros import *
 #### Creacion de la funcion objetivo ####
 
 # Constante para a
-constant = 1000
+constant = 250
 
 # Calcula el error entre Ax y b
 residuo = lambda x, A, b: np.dot(A, x) - b
@@ -138,8 +138,8 @@ def newton(x0, A, b, epsilon, iteracion_maxima):
 
 if __name__ == '__main__':
     # Testeo de Newton, primero se generan datos para la funcion
-    m = 150
-    n = 25
+    m = 300
+    n = 50
     A, b = generar_datos(m, n)
     np.random.seed(220399)
 
