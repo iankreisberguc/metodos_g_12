@@ -6,10 +6,26 @@ __email__ = "mmsaavedra1@ing.puc.cl"
 import numpy as np
 import time
 import scipy.optimize
+import numdifftools as nd
 
 # Modulo creado por nosotros (parametros.py)
 from parametros import *
 
+#### Creacion de la funcion objetivo ####
+
+# Constante para a
+constant = 1000
+
+# Calcula el error entre Ax y b
+residuo = lambda x, A, b: np.dot(A, x) - b
+
+# Calcula la funcion de penalizacion
+penalizacion = lambda x, a: np.piecewise(x, [abs(x) < a, abs(x) >= a], 
+                                    [lambda x: - a**2 * np.log(1 - (x/a)**2),
+                                     lambda x: np.inf])
+
+# Calcula la funcion objetivo
+func_objetivo = lambda x, A, b, a=constant: np.sum(penalizacion(residuo(x, A, b), a))
 
 def timer(funcion):
     """
@@ -26,57 +42,30 @@ def timer(funcion):
         return resultado
     return inner
 
-def subrutina(Q, c, x, a):
+def subrutina(x, A, b, Hess, Grad):
     """
     Esta funcion va creando el paso de cada iteracion. Ocupando la teoría
     estudiada. Retorna el valor de la funcion, su gradiente y su hessiano segun
     la iteracion estudiada.
     """
-    # Dimensiones de la matriz ingresada
-    n, _ = Q.shape
-
-    # Se crean las variables que ayudan a definir la funcion principal
-    # para este caso el vector que solo posee valor en coordenada n
-    # y la matriz que posee valor en coordenada en fila m y coordenada n
-    # ademas del valor del real alpha
-
-    vector_canonico = np.zeros((n, 1))
-    vector_canonico[n-1][0] = 1
-
-    matriz_canonica = np.zeros((n,n))
-    matriz_canonica[n-1][n-1] = 1
-
-    alpha = 10
-    print(x)
-    print('-------------------------')
     # Funcion a optimizar, gradiente y hessiano
-    #funcion_objetivo = 0.5 * np.dot(np.transpose(x), np.dot(Q,x)) + np.dot(np.transpose(c), x) + alpha*(5 - x[n-1])**4
+    valor_FO = func_objetivo(x, A, b)
+    gradiente = Grad(x, A, b)
+    hessiano = Hess(x, A, b)
 
-    r_i = lambda A, x, b: np.dot(A, x) - b
-    penalizacion_logaritmica = lambda x, a: np.piecewise(x, [(abs(x) < a), (abs(x) >= a)], 
-                                            [(-a ** 2) * np.log(1 - (x / a) ** 2), 2**62])
-    
-    funcion_objetivo = lambda A, x, b, a: sum(penalizacion_logaritmica(r_i(A, x, b), a))
-    
-    gradiente = np.dot(Q, x) + c + vector_canonico * (-4*alpha*(5-x[n-1])**3)
-    hessiano = Q + matriz_canonica * (12*alpha*(5-x[n-1])**2)
+    return valor_FO, gradiente, hessiano
 
-    
-    return funcion_objetivo, gradiente, hessiano,
-
-def funcion_enunciado(lambda_, Q, c, x, alpha, direccion_descenso):
+def funcion_enunciado(lambda_, x, A, b, direccion_descenso):
     """
     Funcion original evaluada en: x + lambda*direccion_descenso
     """
-    m, n = Q.shape
-
     # Se actualiza el valor de x
-    x = x + lambda_*direccion_descenso
+    x = x + lambda_ * direccion_descenso
 
-    return (0.5 * np.dot(np.transpose(x), np.dot(Q,x)) + np.dot(np.transpose(c), x) + alpha*(5 - x[n-1])**4)[0][0]
+    return func_objetivo(x, A, b)
 
 @timer
-def newton(Q, c, x0, epsilon, iteracion_maxima, a):
+def newton(x0, A, b, epsilon, iteracion_maxima):
     """
     Esta funcion es una aplicacion del metodo de Newton, la que
     va a ir devolviendo valor objetivo, gradiente actual y Hessiano.
@@ -102,7 +91,10 @@ def newton(Q, c, x0, epsilon, iteracion_maxima, a):
     iteracion = 0
     stop = False
     x = x0
-    alpha = 10
+
+    # Instancias del gradiente y del hessiano que se utilizan para calcularlos
+    Grad = nd.Gradient(func_objetivo)
+    Hess = nd.Hessian(func_objetivo)
 
     # Se prepara el output del codigo para en cada iteracion
     # entregar la informacion correspondiente
@@ -114,54 +106,52 @@ def newton(Q, c, x0, epsilon, iteracion_maxima, a):
 
         # 2º paso del algoritmo: Se obtiene la informacion para determinar
         # el valor de la direccion de descenso
-        [valor, gradiente, hessiano] = subrutina(Q, c, x, a)
+        valor, gradiente, hessiano = subrutina(x, A, b, Hess, Grad)
         direccion_descenso = np.dot(-np.linalg.inv(hessiano), gradiente)
 
         # 3º paso del algoritmo: Se analiza el criterio de parada
         norma = np.linalg.norm(gradiente, ord=2)
-
         if norma <= epsilon:
             stop = True
+    
         else:
         # 4º paso del algoritmo: Se busca el peso (lambda) optimo
-            # Se definen las dimensiones
-            [m, n] = Q.shape
-
             # Se resuelve el subproblema de lambda
-            lambda_ = scipy.optimize.fminbound(funcion_enunciado, 0, 10, args=(Q, c, x, alpha, direccion_descenso))
+            lambda_ = scipy.optimize.fminbound(funcion_enunciado, 0, 10, args=(x, A, b, direccion_descenso))
 
         # La rutina de Newton muestra en pantalla para cada iteracion:
         # nº de iteracion, valor de la funcion evaluada en el x de la iteracion,
         # la norma del gradiente y el valor de peso de lambda
         retorno_en_pantalla = [iteracion, valor, norma, lambda_]
-#       Nota de J. Vera: Esta forma de "print" requiere Python 3.6 
-#        print(f"{retorno_en_pantalla[0]: ^12d}{retorno_en_pantalla[1][0][0]: ^12f} {retorno_en_pantalla[2]: ^12f} {retorno_en_pantalla[3]: ^12f}")
-
-        print("%12.6f %12.6f %12.6f %12.6f" % (retorno_en_pantalla[0],retorno_en_pantalla[1][0][0],retorno_en_pantalla[2],retorno_en_pantalla[3]))
+        print("%12.6f %12.6f %12.6f %12.6f" % (retorno_en_pantalla[0],
+        retorno_en_pantalla[1], retorno_en_pantalla[2], retorno_en_pantalla[3]))
 
 
         # 5º paso del algoritmo: Se actualiza el valor de x para la siguiente
         # iteracion del algoritmo
-        x = x + lambda_*direccion_descenso
+        x = x + lambda_ * direccion_descenso
         iteracion += 1
+
+    print("\nSOLUCION:\n", x)
 
     return retorno_en_pantalla
 
 if __name__ == '__main__':
     # Testeo de Newton, primero se generan datos para la funcion
-    n = 4
-    Q, c = generar_datos(n)
+    m = 150
+    n = 25
+    A, b = generar_datos(m, n)
+    np.random.seed(220399)
 
     # Se ocupa el vector de "unos" como punto de inicio
     # (notar el salto que pega) de la iteracion 1 a la 2 el valor objetivo
     # -- Queda a tu eleccion que vector ingresar como solucion para la iteracion 1 --
-    x0 = np.ones((n, 1))
+    x0 = np.random.uniform(-3, 3, size=n)
+    print(func_objetivo(x0, A, b))
 
     # Error asociado 10% este caso
     epsilon = 0.1
 
     # Maximo de iteraciones (para que no quede un loop infinito)
-    iteracion_maxima = 50
-
-    a=1
-    newton(Q, c, x0, epsilon, iteracion_maxima, a)
+    iteracion_maxima = 100
+    newton(x0, A, b, epsilon, iteracion_maxima)

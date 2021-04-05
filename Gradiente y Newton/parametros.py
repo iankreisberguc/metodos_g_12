@@ -6,46 +6,20 @@ __email__ = "mmsaavedra1@ing.puc.cl"
 
 # Modulos nativos de python
 import numpy as np
-import scipy.linalg
-import random
 
-def generar_datos(dimension):
+def generar_datos(m, n):
     """
-    Esta funcion crea una matriz cuadrada semidefinida positiva para
-    ocuparla en los programas presentados.
+    Recibe parametros m y n, con m > n, retorna una matriz A de mxn con valores
+    entre -10 y 10 y un vector b de mx1 con valores entre -10 y 10
     """
-    '''
-    # Se crea un vector aleatorio positvo segun la dimension entregada
-    vector = np.random.random(dimension)
+    assert (m > n), "m debe ser mayor a n"
+    A = np.random.uniform(-10, 10, size=(m, n))
+    b = np.random.uniform(-10, 10, size=(m, 1))
+    return A, b
 
-    # Se crea una matriz que contenga en su diagonal
-    # el vector ingresado como argumento
-    D = np.diag(vector)
-    B = np.random.rand(dimension,dimension)
-    Q = np.matmul(np.transpose(B),np.matmul(D,B))
-    # Por construcción, la matriz Q es invertible 
-    b = np.random.rand(dimension, 1)
 
-    # Retorna la matriz y vector listo para ejecutar
-    return Q, b
-    '''
-    lista = []
-    for i in range(dimension):
-        lista.append(random.uniform(-10,10))
-
-    c = np.array(lista)
-
-    matriz = []
-    for i in range(dimension):
-        vectores = []
-        for j in range(dimension):
-            vectores.append(random.uniform(-10,10))
-        matriz.append(vectores)
-
-    A = np.array(matriz)
-    return A, c
 if __name__ == '__main__':
-    A, c =generar_datos(5)
+    A, c = generar_datos(3, 5)
     print(A)
     print(c)
 
