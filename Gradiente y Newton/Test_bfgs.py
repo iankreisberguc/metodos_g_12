@@ -13,7 +13,7 @@ from parametros import *
 #### Creacion de la funcion objetivo ####
 
 # Constante para a
-constant = 1000
+constant = 250
 
 # Calcula el error entre Ax y b
 residuo = lambda x, A, b: np.dot(A, x) - b
@@ -66,14 +66,20 @@ if __name__ == '__main__':
     # Se ocupa el vector de "unos" como punto de inicio
     # (notar el salto que pega) de la iteracion 1 a la 2 el valor objetivo
     # -- Queda a tu eleccion que vector ingresar como solucion para la iteracion 1 --
-    x0 = np.ones(n)
+    x0 = np.random.uniform(-3, 3, size=n)
+    print(func_objetivo(x0, A, b))
 
     # Error asociado 10% este caso
     #epsilon = 0.1
 
     # Maximo de iteraciones (para que no quede un loop infinito)
     #iteracion_maxima = 5
-
+    t0 = time.time()
     res = scipy.optimize.minimize(subrutina, x0, (A, b), method='BFGS', options={'gtol': 1e-6, 'disp': True})
-    
+    t1 = time.time() - t0
+    print("\nTiempo de demora:", t1, "\n\n")
     print(res.message)
+    print()
+    x_opt = res.x
+    print(np.linalg.norm(residuo(x_opt, A, b)))
+    print(res.x)
