@@ -9,23 +9,7 @@ import scipy.optimize
 import numdifftools as nd
 
 # Modulo creado por nosotros (parametros.py)
-from parametros import *
-
-#### Creacion de la funcion objetivo ####
-
-# Constante para a
-constant = 250
-
-# Calcula el error entre Ax y b
-residuo = lambda x, A, b: np.dot(A, x) - b
-
-# Calcula la funcion de penalizacion
-penalizacion = lambda x, a: np.piecewise(x, [abs(x) < a, abs(x) >= a], 
-                                    [lambda x: - a**2 * np.log(1 - (x/a)**2),
-                                     lambda x: np.inf])
-
-# Calcula la funcion objetivo
-func_objetivo = lambda x, A, b, a=constant: np.sum(penalizacion(residuo(x, A, b), a))
+from parametros import generar_datos, func_objetivo, gradient_f
 
 def timer(funcion):
     """
@@ -42,7 +26,7 @@ def timer(funcion):
         return resultado
     return inner
 
-def subrutina(x, A, b, Hess, Grad):
+def subrutina(x, A, b, Hess):
     """
     Esta funcion va creando el paso de cada iteracion. Ocupando la teoría
     estudiada. Retorna el valor de la funcion, su gradiente y su hessiano segun
@@ -50,7 +34,7 @@ def subrutina(x, A, b, Hess, Grad):
     """
     # Funcion a optimizar, gradiente y hessiano
     valor_FO = func_objetivo(x, A, b)
-    gradiente = Grad(x, A, b)
+    gradiente = gradient_f(x, A, b)
     hessiano = Hess(x, A, b)
 
     return valor_FO, gradiente, hessiano
@@ -93,8 +77,7 @@ def newton(x0, A, b, epsilon, iteracion_maxima):
     x = x0
 
     # Instancias del gradiente y del hessiano que se utilizan para calcularlos
-    Grad = nd.Gradient(func_objetivo)
-    Hess = nd.Hessian(func_objetivo)
+    Hess = nd.Gradient(gradient_f)
 
     # Se prepara el output del codigo para en cada iteracion
     # entregar la informacion correspondiente
@@ -106,7 +89,7 @@ def newton(x0, A, b, epsilon, iteracion_maxima):
 
         # 2º paso del algoritmo: Se obtiene la informacion para determinar
         # el valor de la direccion de descenso
-        valor, gradiente, hessiano = subrutina(x, A, b, Hess, Grad)
+        valor, gradiente, hessiano = subrutina(x, A, b, Hess)
         direccion_descenso = np.dot(-np.linalg.inv(hessiano), gradiente)
 
         # 3º paso del algoritmo: Se analiza el criterio de parada
@@ -117,14 +100,14 @@ def newton(x0, A, b, epsilon, iteracion_maxima):
         else:
         # 4º paso del algoritmo: Se busca el peso (lambda) optimo
             # Se resuelve el subproblema de lambda
-            lambda_ = scipy.optimize.fminbound(funcion_enunciado, 0, 10, args=(x, A, b, direccion_descenso))
+            lambda_ = scipy.optimize.fminbound(funcion_enunciado, 0, 3*1e0, args=(x, A, b, direccion_descenso))
 
         # La rutina de Newton muestra en pantalla para cada iteracion:
         # nº de iteracion, valor de la funcion evaluada en el x de la iteracion,
         # la norma del gradiente y el valor de peso de lambda
         retorno_en_pantalla = [iteracion, valor, norma, lambda_]
         print("%12.6f %12.6f %12.6f %12.6f" % (retorno_en_pantalla[0],
-        retorno_en_pantalla[1], retorno_en_pantalla[2], retorno_en_pantalla[3]))
+                retorno_en_pantalla[1], retorno_en_pantalla[2], retorno_en_pantalla[3]))
 
 
         # 5º paso del algoritmo: Se actualiza el valor de x para la siguiente
@@ -132,26 +115,28 @@ def newton(x0, A, b, epsilon, iteracion_maxima):
         x = x + lambda_ * direccion_descenso
         iteracion += 1
 
-    print("\nSOLUCION:\n", x)
+    #print("\nSOLUCION:\n", x)
 
     return retorno_en_pantalla
 
 if __name__ == '__main__':
+    print("\n\n ---------------- NEWTON ----------------\n")
     # Testeo de Newton, primero se generan datos para la funcion
     m = 300
     n = 50
-    A, b = generar_datos(m, n)
     np.random.seed(220399)
+    A, b = generar_datos(m, n)
 
     # Se ocupa el vector de "unos" como punto de inicio
     # (notar el salto que pega) de la iteracion 1 a la 2 el valor objetivo
     # -- Queda a tu eleccion que vector ingresar como solucion para la iteracion 1 --
-    x0 = np.random.uniform(-3, 3, size=n)
-    print(func_objetivo(x0, A, b))
+    x0 = np.zeros(n)
+    print("Valor de la FO:", func_objetivo(x0, A, b), "\n")
 
     # Error asociado 10% este caso
-    epsilon = 0.1
+    epsilon = 0.001
 
     # Maximo de iteraciones (para que no quede un loop infinito)
     iteracion_maxima = 100
     newton(x0, A, b, epsilon, iteracion_maxima)
+    

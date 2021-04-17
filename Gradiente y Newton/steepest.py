@@ -6,9 +6,10 @@ __email__ = "mmsaavedra1@ing.puc.cl"
 import numpy as np
 import time
 import scipy.optimize
+import numdifftools as nd
 
 # Modulo creado por usuario
-from parametros import *
+from parametros import generar_datos, gradient_f, func_objetivo
 
 # Se crea un decorador (googlear) del tipo timer para testear el tiempo
 # de ejecucion del programa
@@ -25,47 +26,30 @@ def timer(funcion):
 
 # Se define la evaluacion de valores dentro de cada iteracion
 # de la rutina del gradiente
-def subrutina(Q, c, x):
+def subrutina(x, A, b, Grad):
     """
     Esta funcion va creando el paso de cada iteracion. Ocupando la teoría
-    estudiada. Retorna el valor de la funcion, su gradiente segun
+    estudiada. Retorna el valor de la funcion, su gradiente y su hessiano segun
     la iteracion estudiada.
     """
-    # Dimensiones de la matriz ingresada
-    n, _ = Q.shape
-
-    # Se crean las variables que ayudan a definir la funcion principal
-    # para este caso el vector que solo posee valor en coordenada n
-    # y la matriz que posee valor en coordenada en fila m y coordenada n
-    # ademas del valor del real alpha
-
-    vector_canonico = np.zeros((n, 1))
-    vector_canonico[n-1][0] = 1
-
-    matriz_canonica = np.zeros((n,n))
-    matriz_canonica[n-1][n-1] = 1
-
-    alpha = 10
-
     # Funcion a optimizar, gradiente y hessiano
-    funcion_objetivo = 0.5 * np.dot(np.transpose(x), np.dot(Q,x)) + np.dot(np.transpose(c), x) + alpha*(5 - x[n-1])**4
-    gradiente = np.dot(Q, x) + c + vector_canonico * (-4*alpha*(5-x[n-1])**3)
+    valor_FO = func_objetivo(x, A, b)
 
-    return funcion_objetivo, gradiente
+    #gradiente = Grad(x, A, b) 
+    gradiente = gradient_f(x, A, b)
 
-def funcion_enunciado(lambda_, Q, c, x, alpha, direccion_descenso):
+    return valor_FO, gradiente
+
+def funcion_enunciado(lambda_, x, A, b, direccion_descenso):
     """
     Funcion original evaluada en: x + lambda*direccion_descenso
     """
-    m, n = Q.shape
-
     # Se actualiza el valor de x
-    x = x + lambda_*direccion_descenso
-
-    return (0.5 * np.dot(np.transpose(x), np.dot(Q,x)) + np.dot(np.transpose(c), x) + alpha*(5 - x[n-1])**4)[0][0]
+    x = x + lambda_ * direccion_descenso
+    return func_objetivo(x, A, b)
 
 @timer
-def gradiente(Q, c, x0, epsilon, iteracion_maxima):
+def gradiente(x0, A, b, epsilon, iteracion_maxima):
     """
     Esta funcion es una aplicacion del metodo del gradiente, la que
     va a ir devolviendo valor objetivo, gradiente actual.
@@ -91,7 +75,8 @@ def gradiente(Q, c, x0, epsilon, iteracion_maxima):
     iteracion = 0
     stop = False
     x = x0
-    alpha = 10
+
+    Grad = nd.Gradient(func_objetivo)
 
     # Se prepara el output del codigo para en cada iteracion
     # entregar la informacion correspondiente
@@ -103,30 +88,24 @@ def gradiente(Q, c, x0, epsilon, iteracion_maxima):
 
         # 2º paso del algoritmo: Se obtiene la informacion para determinar
         # el valor de la direccion de descenso
-        [valor, gradiente] = subrutina(Q, c, x)
+        valor, gradiente = subrutina(x, A, b, Grad)
         direccion_descenso = -gradiente
 
         # 3º paso del algoritmo: Se analiza el criterio de parada
         norma = np.linalg.norm(gradiente, 2)
-
         if norma <= epsilon:
             stop = True
+
         else:
         # 4º paso del algoritmo: Se busca el peso (lambda) optimo
-            # Se definen las dimensiones
-            [m, n] = Q.shape
-
             # Se resuelve el subproblema de lambda
-            lambda_ = scipy.optimize.fminbound(funcion_enunciado, 0, 10, args=(Q, c, x, alpha, direccion_descenso))
-
+            lambda_ = scipy.optimize.fminbound(funcion_enunciado, 0, 1e-3, args=(x, A, b, direccion_descenso))
         # La rutina del gradiente muestra en pantalla para cada iteracion:
         # nº de iteracion, valor de la funcion evaluada en el x de la iteracion,
         # la norma del gradiente y el valor de peso de lambda
         retorno_en_pantalla = [iteracion, valor, norma, lambda_]
-#       Nota de J. Vera: Esta forma de "print" requiere Python 3.6 
-#        print(f"{retorno_en_pantalla[0]: ^12d}{retorno_en_pantalla[1][0][0]: ^12f} {retorno_en_pantalla[2]: ^12f} {retorno_en_pantalla[3]: ^12f}")
-
-        print("%12.6f %12.6f %12.6f %12.6f" % (retorno_en_pantalla[0],retorno_en_pantalla[1][0][0],retorno_en_pantalla[2],retorno_en_pantalla[3]))
+        print("%12.6f %12.6f %12.6f %12.6f" % (retorno_en_pantalla[0], retorno_en_pantalla[1], 
+                retorno_en_pantalla[2], retorno_en_pantalla[3]))
 
 
         # 5º paso del algoritmo: Se actualiza el valor de x para la siguiente
@@ -134,6 +113,27 @@ def gradiente(Q, c, x0, epsilon, iteracion_maxima):
         x = x + lambda_*direccion_descenso
         iteracion += 1
 
+    #print("\nSOLUCION:\n", x)
     return retorno_en_pantalla
 
+if __name__ == '__main__':
+    print("\n\n ---------------- GRADIENTE ----------------\n")
+    # Testeo de Newton, primero se generan datos para la funcion
+    m = 300
+    n = 50
+    np.random.seed(220399)
+    A, b = generar_datos(m, n)
 
+    # Se ocupa el vector de "unos" como punto de inicio
+    # (notar el salto que pega) de la iteracion 1 a la 2 el valor objetivo
+    # -- Queda a tu eleccion que vector ingresar como solucion para la iteracion 1 --
+    #x0 = np.random.uniform(-3, 3, size=n)
+    x0 = np.zeros(n)
+    print("Valor de la FO:", func_objetivo(x0, A, b), "\n")
+
+    # Error asociado 10% este caso
+    epsilon = 0.1
+
+    # Maximo de iteraciones (para que no quede un loop infinito)
+    iteracion_maxima = 3000
+    gradiente(x0, A, b, epsilon, 100)
